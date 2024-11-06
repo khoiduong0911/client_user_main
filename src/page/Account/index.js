@@ -8,11 +8,12 @@ import { Orders } from "./Orders";
 import { useSelector, useDispatch } from "react-redux";
 import { toast } from "react-toastify";
 import { toastConfig } from "../../constants/configToast";
-import { setUser, updateUserRequest } from '../../actions/actionAuth';
+import { setUser, signOut, updateUserRequest } from '../../actions/actionAuth';
 import { Loader } from '../../components/Loader';
 import { useHistory } from 'react-router-dom';
 import callAPI from '../../untils/callAPI';
 import { OrderDetail } from './OrderDetail';
+
 export const Account = () => {
     const history = useHistory();
     const user = useSelector(state => state.user);
@@ -31,16 +32,25 @@ export const Account = () => {
         orderDetail: false
     })
     useEffect(() => {
-        setImage(user.image);
-        if (!isEmptyObject(user)) {
-            getListOrders().then(data => {
-                setListOrder(data.orders);
-                setOrderTotal(data.ordersTotal);
-            });
-        } else {
-            history.push("/");
-        }
-    }, [user, statusOrder])
+        const checkUserStatus = async () => {
+            if (!isEmptyObject(user)) {
+                if (user.status === "không hoạt động" || user.status === "bị khóa") {
+                    toast.warning("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ hỗ trợ để được mở khóa.", toastConfig);
+                    await signOut(dispatch);  // Đăng xuất
+                    history.push("/Auth");  // Chuyển hướng về trang đăng nhập
+                } else {
+                    // Lấy danh sách đơn hàng nếu tài khoản hợp lệ
+                    const data = await getListOrders();
+                    setListOrder(data.orders);
+                    setOrderTotal(data.ordersTotal);
+                }
+            } else {
+                history.push("/");
+            }
+        };
+    
+        checkUserStatus();
+    }, [user, statusOrder]);
     const isEmptyObject = (obj) => {
         return Object.keys(obj).length === 0;
     }
@@ -117,7 +127,7 @@ export const Account = () => {
     const showStatusStep = (status) => {
         switch (status) {
             case 0:
-                return "0%";
+                return "0%";        
             case 1:
                 return "25%";
             case 2:
@@ -134,6 +144,7 @@ export const Account = () => {
         })
         setListOrder(listOrder.filter(order => order._id === data.searchOrderByID));
     }
+    
     return (
         <div className="account_wrap">
             {isLoading ? <Loader /> : ""}
